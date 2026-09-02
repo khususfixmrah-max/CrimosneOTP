@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CrimosneOTP — Auto OTP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#070817;--card:#11132a;--line:#282b52;--text:#f7f7ff;--muted:#9da2c2;--a:#8b5cf6;--b:#22d3ee;--good:#34d399;--bad:#fb7185}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,sans-serif;color:var(--text);background:radial-gradient(circle at 10% 0%,#281052 0,transparent 30%),radial-gradient(circle at 90% 10%,#064b63 0,transparent 25%),var(--bg);min-height:100vh}
+.wrap{max-width:1100px;margin:auto;padding:28px 18px}.nav{display:flex;justify-content:space-between;align-items:center;gap:15px}.brand{font-size:24px;font-weight:800;background:linear-gradient(90deg,var(--b),#a78bfa,#f472b6);-webkit-background-clip:text;color:transparent}.pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+.hero{padding:70px 0 30px;text-align:center}.hero h1{font-size:clamp(38px,7vw,72px);margin:0 0 15px}.hero p{color:var(--muted);max-width:650px;margin:auto;line-height:1.7}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}.card{background:rgba(17,19,42,.82);backdrop-filter:blur(15px);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 20px 60px #0004}.card h3{margin-top:0}
+button{border:0;border-radius:13px;padding:12px 15px;font-weight:700;cursor:pointer;color:white;background:linear-gradient(135deg,var(--a),#ec4899)}button.alt{background:#202344}input,select{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:#0b0d20;color:white;margin:7px 0 12px;outline:none}label{font-size:13px;color:var(--muted)}
+.hidden{display:none!important}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.balance{font-size:28px;font-weight:800}.service{display:flex;gap:12px;align-items:center}.service img{width:42px;height:42px;object-fit:contain;border-radius:12px;background:#fff}.status{padding:7px 10px;border-radius:999px;background:#202344;color:#cbd5e1;font-size:12px}.otp{font-size:32px;font-weight:800;letter-spacing:5px;color:#67e8f9}.muted{color:var(--muted)}.toast{position:fixed;right:18px;bottom:18px;background:#151833;border:1px solid var(--line);padding:13px 16px;border-radius:13px;display:none;max-width:360px}
+.qr{width:230px;max-width:100%;border-radius:14px;background:white;padding:8px}.small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="nav"><div class="brand">CrimosneOTP</div><div id="navUser" class="pill">Guest</div></nav>
+
+  <section id="landing" class="hero">
+    <h1>OTP cepat. <span style="color:#67e8f9">Serba otomatis.</span></h1>
+    <p>Marketplace OTP dengan akun pribadi, saldo QRIS otomatis, harga transparan, dan pemantauan status order secara real-time.</p>
+    <div class="row" style="justify-content:center;margin-top:24px"><button onclick="show('auth')">Mulai Sekarang</button><button class="alt" onclick="show('auth')">Login</button></div>
+  </section>
+
+  <section id="auth" class="grid hidden">
+    <div class="card"><h3>Masuk</h3><label>Email</label><input id="le" type="email"><label>Password</label><input id="lp" type="password"><button onclick="login()">Login</button></div>
+    <div class="card"><h3>Buat akun</h3><label>Username</label><input id="ru"><label>Email</label><input id="re" type="email"><label>Password</label><input id="rp" type="password"><button onclick="register()">Register</button><p class="small">Minimal password 8 karakter.</p></div>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="grid">
+      <div class="card"><div class="muted">Saldo</div><div id="balance" class="balance">Rp0</div><button style="margin-top:12px" onclick="deposit()">Deposit QRIS</button></div>
+      <div class="card"><div class="muted">Akun</div><h3 id="who">-</h3><button class="alt" onclick="logout()">Keluar</button></div>
+    </div>
+    <div class="grid" style="margin-top:16px">
+      <div class="card"><h3>1. Pilih layanan</h3><select id="service" onchange="loadCountries()"><option value="">Pilih layanan...</option></select><div id="servicesHint" class="small"></div></div>
+      <div class="card"><h3>2. Negara & provider</h3><select id="country" onchange="loadOperators()"><option value="">Pilih negara...</option></select><select id="provider"><option value="">Pilih provider...</option></select></div>
+      <div class="card"><h3>3. Operator</h3><select id="operator"><option value="">Pilih operator...</option></select><button onclick="buyOtp()">Beli OTP</button><p class="small">Harga jual dihitung otomatis dari harga provider + markup.</p></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Order aktif</h3><div id="orders"><span class="muted">Belum ada order.</span></div></div>
+  </section>
+</div>
+<div id="toast" class="toast"></div>
+<script>
+const $=id=>document.getElementById(id); let token=localStorage.getItem('crimosne_token'), user=null, currentCountry=null;
+const money=n=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n);
+function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',3500)}
+function show(id){['landing','auth'].forEach(x=>$(x).classList.add('hidden'));$(id).classList.remove('hidden')}
+async function api(url,opt={}){opt.headers={'Content-Type':'application/json',...(opt.headers||{}),...(token?{Authorization:'Bearer '+token}:{})};const r=await fetch('/api/'+url,opt);const j=await r.json();if(!r.ok||j.success===false)throw Error(j?.error?.message||'Request gagal');return j}
+async function register(){try{const j=await api('auth/register',{method:'POST',body:JSON.stringify({username:$('ru').value,email:$('re').value,password:$('rp').value})});token=j.data.token;localStorage.setItem('crimosne_token',token);await start()}catch(e){toast(e.message)}}
+async function login(){try{const j=await api('auth/login',{method:'POST',body:JSON.stringify({email:$('le').value,password:$('lp').value})});token=j.data.token;localStorage.setItem('crimosne_token',token);await start()}catch(e){toast(e.message)}}
+function logout(){localStorage.removeItem('crimosne_token');token=null;location.reload()}
+async function start(){try{const j=await api('me');user=j.data;$('landing').classList.add('hidden');$('auth').classList.add('hidden');$('app').classList.remove('hidden');$('navUser').textContent=user.username;$('who').textContent=user.email;renderBalance();await loadServices();}catch(e){logout()}}
+function renderBalance(){ $('balance').textContent=money(user.balance)}
+async function loadServices(){try{const j=await api('services');$('service').innerHTML='<option value="">Pilih layanan...</option>'+(j.data||[]).map(s=>`<option value="${s.service_code}" data-name="${s.service_name}">${s.service_name}</option>`).join('')}catch(e){toast(e.message)}}
+async function loadCountries(){try{const sid=$('service').value;if(!sid)return;$('country').innerHTML='<option>Loading...</option>';const j=await api('countries?service_id='+encodeURIComponent(sid));$('country').innerHTML='<option value="">Pilih negara...</option>'+(j.data||[]).map(c=>`<option value="${c.number_id}" data-name="${c.name}" data-prefix="${c.prefix}">${c.name} — ${c.prefix} — ${c.stock_total} stok</option>`).join('');$('provider').innerHTML='<option value="">Pilih provider...</option>';$('operator').innerHTML='<option value="">Pilih operator...</option>'}catch(e){toast(e.message)}}
+async function loadOperators(){try{const sid=$('service').value,nid=$('country').value;if(!nid)return;const j=await api('countries?service_id='+sid);currentCountry=(j.data||[]).find(x=>String(x.number_id)===String(nid));$('provider').innerHTML='<option value="">Pilih provider...</option>'+(currentCountry?.pricelist||[]).filter(p=>p.available&&Number(p.stock)>0).map(p=>`<option value="${p.provider_id}" data-cost="${p.price}">Provider ${p.provider_id} — ${money(p.price)} cost</option>`).join('');const countryName=currentCountry.name;const provider=$('provider');provider.onchange=async()=>{if(!provider.value)return;const o=await api('operators?country='+encodeURIComponent(countryName)+'&provider_id='+encodeURIComponent(provider.value));$('operator').innerHTML='<option value="">Pilih operator...</option>'+(o.data||[]).map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}}catch(e){toast(e.message)}}
+async function buyOtp(){try{const s=$('service'),c=$('country'),p=$('provider'),o=$('operator');if(!s.value||!c.value||!p.value||!o.value)throw Error('Lengkapi pilihan layanan, negara, provider, operator.');const j=await api('orders/create',{method:'POST',body:JSON.stringify({number_id:c.value,provider_id:p.value,operator_id:o.value,service_code:s.value,service_name:s.options[s.selectedIndex].dataset.name,country_name:c.options[c.selectedIndex].dataset.name})});user.balance-=Number(j.data.retail_price);renderBalance();renderOrder(j.data);toast('Order berhasil dibuat.');poll(j.data.order_id)}catch(e){toast(e.message)}}
+function renderOrder(o){$('orders').innerHTML=`<div class="service"><div><b>${o.service}</b><div class="small">${o.country} · ${o.operator}</div></div><span class="status" id="st">${o.status}</span></div><p>Nomor: <b>${o.phone_number}</b></p><p>Harga: <b>${money(o.retail_price||o.price)}</b></p><div id="otpbox"><span class="muted">Menunggu SMS OTP...</span></div><div class="row" style="margin-top:14px"><button class="alt" onclick="cancelOrder('${o.order_id}')">Batalkan</button></div>`}
+async function poll(id){let tries=0;const loop=async()=>{if(tries++>40)return;try{const j=await api('orders/status?order_id='+encodeURIComponent(id));const d=j.data;$('st').textContent=d.status;if(d.otp_code)$('otpbox').innerHTML=`<div class="otp">${d.otp_code}</div><div class="small" style="white-space:pre-wrap">${d.otp_msg||''}</div>`;if(d.status==='received'||d.status==='expiring')setTimeout(loop,5000)}catch(e){setTimeout(loop,7000)}};loop()}
+async function cancelOrder(id){try{await api('orders/cancel?order_id='+encodeURIComponent(id));const j=await api('me');user=j.data;renderBalance();$('st').textContent='canceled';toast('Order dibatalkan dan saldo dikembalikan.')}catch(e){toast(e.message)}}
+async function deposit(){try{const a=prompt('Nominal deposit (minimal Rp5.000):','10000');if(!a)return;const j=await api('deposit/create',{method:'POST',body:JSON.stringify({amount:Number(a)})});const d=j.data; $('orders').innerHTML=`<div><h3>Scan QRIS</h3><img class="qr" src="${d.qr_image}" alt="QRIS"><p>Total bayar: <b>${money(d.amount)}</b></p><p>Status: <b id="depst">pending</b></p><div class="small">Deposit ID: ${d.id}</div></div>`;pollDeposit(d.id)}catch(e){toast(e.message)}}
+function pollDeposit(id){let n=0;const loop=async()=>{if(n++>60)return;try{const j=await api('deposit/status?deposit_id='+encodeURIComponent(id));$('depst').textContent=j.data.status;if(j.data.status==='success'){const m=await api('me');user=m.data;renderBalance();toast('Deposit berhasil masuk.')}else if(j.data.status==='pending')setTimeout(loop,4000)}catch(e){setTimeout(loop,6000)}};loop()}
+if(token)start(); else show('landing');
+</script>
+</body></html>
